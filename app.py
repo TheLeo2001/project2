@@ -131,10 +131,45 @@ def search_teams_in_leagues():
 
     return jsonify(results), 200
 
-    
-    
+
+       
 ############################################################################################################################################
     
+############################################################################################################################################
+
+@app.route('/api/v1.0/leaguesCollection/searchTeamsByStats', methods=['GET'])
+def search_teams_by_stats():
+    wins = request.args.get('wins')
+    if not wins:
+        return jsonify({'error': 'Query parameter "wins" is required'}), 400
+
+    # Convert wins parameter to an integer
+    try:
+        wins = int(wins)
+    except ValueError:
+        return jsonify({'error': 'Invalid value for "wins"'}), 400
+
+    # Construct MongoDB aggregation pipeline to retrieve teams with the specified number of wins
+    pipeline = [
+    {"$addFields": {"teamsArray": {"$objectToArray": "$teams"}}},
+    {"$match": {"teamsArray.v.W": wins}},
+    {"$project": {"team": {"$objectToArray": "$teams"}, "_id": 0}},
+    {"$unwind": "$team"},
+    {"$match": {"team.v.W": wins}},
+    {"$replaceRoot": {"newRoot": "$team"}}
+]
+
+
+    # Execute aggregation pipeline
+    results = list(leaguesCollection.aggregate(pipeline))
+
+    return jsonify(results), 200
+
+
+
+    
+    
+############################################################################################################################################    
     
 ############################################################################################################################################
 
@@ -287,7 +322,7 @@ def good_reviews():
             },
             {
                 '$project': {
-                    '_id': 0,  # Exclude _id field
+                    '_id': 1,  # Exclude _id field
                     'league_title': '$title',  # Project league title
                     'review': '$reviews'  # Project the review
                 }
