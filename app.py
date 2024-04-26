@@ -13,6 +13,8 @@ CORS(app)
 
 app.config['SECRET_KEY'] = 'mysecret'
 
+#app.config['SECRET_KEY'] = 'iiwctehv9269vcdeqio2947tmvncfe629rvbxk2937nc'
+
 
 # MongoDB connection
 client = MongoClient('mongodb://localhost:27017/')
@@ -251,6 +253,8 @@ def edit_review(_id, reviewID):
         if league:
             for review in league['reviews']:
                 if review['id'] == reviewID:
+                    print("Received data:", request.form)  # Add this line to log the received data
+
                     # form data
                     new_username = request.form.get('username')
                     new_comment = request.form.get('comment')
@@ -280,6 +284,7 @@ def edit_review(_id, reviewID):
             return make_response(jsonify({'error': 'Not found'}), 404)
     except Exception as e:
         return make_response(jsonify({'error': str(e)}), 400)
+
 
 ############################################################################################################################################
 

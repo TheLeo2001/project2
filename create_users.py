@@ -21,6 +21,14 @@ user_list = [
         "email" : "marge@springfield.net",
         "admin" : False
 
+    },
+    {
+        "name" : "Leo McNally",
+        "username" : "Leo",
+        "password" : b"leo_m",
+        "email" : "leo@email.net",
+        "admin" : True
+
     }
 ]
 
