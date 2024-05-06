@@ -64,18 +64,15 @@ def admin_required(func):
 
 @app.route('/api/v1.0/leaguesCollection', methods=['GET'])
 def show_all_leagues():
-    page_num, page_size = 1, 10
-    if request.args.get('pn'):
-        page_num = int(request.args.get('pn'))
-    if request.args.get('ps'):
-        page_size = int(request.args.get('ps'))
+    page_num = int(request.args.get('pn', 1))
+    page_size = int(request.args.get('ps', 10))
 
-    page_start = (page_size * (page_num - 1))
-
+    page_start = (page_num - 1) * page_size
     leagues_list = list(leaguesCollection.find({}))
     data_to_return = leagues_list[page_start:page_start + page_size]
 
-    return make_response(jsonify(data_to_return), 200)
+    return jsonify(data_to_return), 200
+
 
 ############################################################################################################################################
 
@@ -86,15 +83,16 @@ def show_one_league(_id):
         # Use find_one to retrieve the document by _id
         league = leaguesCollection.find_one({'_id': _id})
 
-        if league is not None:
+        if league:
             league['_id'] = str(league['_id'])
-            for review in league['reviews']:
+            for review in league.get('reviews', []):
                 review['id'] = str(review['id'])
-            return make_response(jsonify( [league] ), 200)
+            return jsonify([league]), 200
         else:
-            return make_response(jsonify({'error': 'League not found'}), 404)
+            return jsonify({'error': 'League not found'}), 404
     except Exception as e:
-        return make_response(jsonify({'error': str(e)}), 400)
+        return jsonify({'error': str(e)}), 400
+
     
 ###########################################################################################################################################
     
@@ -105,13 +103,13 @@ def show_one_league(_id):
 def search_leagues():
     query = request.args.get('query')
     if not query:
-        return make_response(jsonify({'error': 'Query parameter is required'}), 400)                                      #########
-                                                                                                                        # search attempt leagues #
-    # Perform a MongoDB query to search for leagues based on the query parameter                                           #########
-    # Example: leagues_list = list(leaguesCollection.find({"title": {"$regex": query, "$options": "i"}}))
+        return jsonify({'error': 'Query parameter is required'}), 400
+    
+    # Perform a MongoDB query to search for leagues based on the query parameter
     leagues_list = list(leaguesCollection.find({"title": {"$regex": query, "$options": "i"}}))
 
-    return make_response(jsonify(leagues_list), 200)
+    return jsonify(leagues_list), 200
+
 
 
 ###########################################################################################################################################
@@ -132,6 +130,7 @@ def search_teams_in_leagues():
     results = list(leaguesCollection.aggregate(pipeline))
 
     return jsonify(results), 200
+
 
 
        
@@ -181,11 +180,12 @@ def fetch_all_reviews(_id):
         league = leaguesCollection.find_one({'_id': _id})
 
         if league:
-            return make_response(jsonify(league.get('reviews', [])), 200)
+            return jsonify(league.get('reviews', [])), 200
         else:
-            return make_response(jsonify({'error': 'not found'}), 404)
+            return jsonify({'error': 'League not found'}), 404
     except Exception as e:
-        return make_response(jsonify({'error': str(e)}), 400)
+        return jsonify({'error': str(e)}), 400
+
     
 ############################################################################################################################################ 
 
@@ -199,13 +199,9 @@ def add_new_review(_id):
             comment = request.form.get('comment')
             stars = request.form.get('stars')
 
-            if username is not None and username != '' and comment is not None and comment != '' and stars is not None:
+            if username and comment and stars:
                 stars = int(stars)
-
-                if len(league.get('reviews', [])) == 0:
-                    new_review_id = 1
-                else:
-                    new_review_id = league['reviews'][-1]['id'] + 1
+                new_review_id = 1 if len(league.get('reviews', [])) == 0 else league['reviews'][-1]['id'] + 1
 
                 new_review = {
                     'id': new_review_id,
@@ -216,31 +212,32 @@ def add_new_review(_id):
 
                 league.setdefault('reviews', []).append(new_review)
                 leaguesCollection.update_one({'_id': _id}, {'$set': {'reviews': league['reviews']}})
-                return make_response(jsonify(new_review), 200)
+                return jsonify(new_review), 200
             else:
-                return make_response(jsonify({'error': 'Invalid form data'}), 400)
+                return jsonify({'error': 'Invalid form data'}), 400
         else:
-            return make_response(jsonify({'error': 'Not found'}), 404)
+            return jsonify({'error': 'not found'}), 404
     except Exception as e:
-        return make_response(jsonify({'error': str(e)}), 400)
+        return jsonify({'error': str(e)}), 400
+
 
 ############################################################################################################################################
 
-@app.route('/api/v1.0/leaguesCollection/<int:_id>/reviews/<int:reviewID>', methods=['GET'])
-def fetch_one_review(_id, reviewID):
-    try:
-        league = leaguesCollection.find_one({'_id': _id})
+#@app.route('/api/v1.0/leaguesCollection/<int:_id>/reviews/<int:reviewID>', methods=['GET'])
+#def fetch_one_review(_id, reviewID):
+   # try:
+       # league = leaguesCollection.find_one({'_id': _id})
 
-        if league:
-            for review in league['reviews']:
-                if review['id'] == reviewID:
-                    return make_response(jsonify(review), 200)
+       # if league:
+           # for review in league['reviews']:
+               # if review['id'] == reviewID:
+                    #return make_response(jsonify(review), 200)
 
             # If the loop completes without finding a matching review
-            return make_response(jsonify({'error': 'not found'}), 404)
+            #return make_response(jsonify({'error': 'not found'}), 404)
 
-    except Exception as e:
-        return make_response(jsonify({'error': str(e)}), 400)
+   # except Exception as e:
+      #  return make_response(jsonify({'error': str(e)}), 400)
     
 ############################################################################################################################################
 
@@ -251,39 +248,39 @@ def edit_review(_id, reviewID):
         league = leaguesCollection.find_one({'_id': _id})
 
         if league:
-            for review in league['reviews']:
+            for review in league.get('reviews', []):
                 if review['id'] == reviewID:
-                    print("Received data:", request.form)  # Add this line to log the received data
+                    print("Received data:", request.form)  # log the received data
 
                     # form data
                     new_username = request.form.get('username')
                     new_comment = request.form.get('comment')
                     new_stars = request.form.get('stars')
 
-                    if (
-                        new_username is not None and new_username != '' and
-                        new_comment is not None and new_comment != '' and
-                        new_stars is not None
-                    ):
+                    if new_username and new_comment and new_stars:
                         # Convert stars to an integer
                         new_stars = int(new_stars)
 
                         # Update review data
-                        review['username'] = new_username
-                        review['comment'] = new_comment
-                        review['stars'] = new_stars
+                        review.update({
+                            'username': new_username,
+                            'comment': new_comment,
+                            'stars': new_stars
+                        })
 
                         # Save changes back to MongoDB
                         leaguesCollection.update_one({'_id': _id}, {'$set': {'reviews': league['reviews']}})
 
-                        return make_response(jsonify(review), 200)
+                        return jsonify(review), 200
                     else:
-                        return make_response(jsonify({'error': 'Invalid form data'}), 400)
+                        return jsonify({'error': 'Invalid form data'}), 400
 
             # If the loop completes without finding a matching review
-            return make_response(jsonify({'error': 'Not found'}), 404)
+            return jsonify({'error': 'Review not found'}), 404
+        else:
+            return jsonify({'error': 'League not found'}), 404
     except Exception as e:
-        return make_response(jsonify({'error': str(e)}), 400)
+        return jsonify({'error': str(e)}), 400
 
 
 ############################################################################################################################################
@@ -296,19 +293,19 @@ def delete_review(_id, reviewID):
         league = leaguesCollection.find_one({'_id': _id})
 
         if league:
-            for review in league['reviews']:
+            for review in league.get('reviews', []):
                 if review['id'] == reviewID:
                     league['reviews'].remove(review)
                     leaguesCollection.update_one({'_id': _id}, {'$set': {'reviews': league['reviews']}})
-                    break
+                    return jsonify({}), 200
 
-            # Return a response after the loop completes
-            return make_response(jsonify({}), 200)
-
-        # If the loop completes without finding a matching review
-        return make_response(jsonify({'error': 'Not found'}), 404)
+            # If the loop completes without finding a matching review
+            return jsonify({'error': 'Review not found'}), 404
+        else:
+            return jsonify({'error': 'League not found'}), 404
     except Exception as e:
-        return make_response(jsonify({'error': str(e)}), 400)
+        return jsonify({'error': str(e)}), 400
+
 
 ############################################################################################################################################
 
@@ -317,21 +314,9 @@ def good_reviews():
     try:
         # Aggregation pipeline to match highly-rated reviews
         pipeline = [
-            {
-                '$unwind': '$reviews'  # Unwind the reviews array
-            },
-            {
-                '$match': {
-                    'reviews.stars': 5  # Match reviews with 5 stars
-                }
-            },
-            {
-                '$project': {
-                    '_id': 1,  # Exclude _id field
-                    'league_title': '$title',  # Project league title
-                    'review': '$reviews'  # Project the review
-                }
-            }
+            {"$unwind": "$reviews"},  # Unwind the reviews array
+            {"$match": {"reviews.stars": 5}},  # Match reviews with 5 stars
+            {"$project": {"_id": 0, "league_title": "$title", "review": "$reviews"}}  # Project league title and review
         ]
 
         # Execute the aggregation pipeline
@@ -342,6 +327,7 @@ def good_reviews():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 ############################################################################################################################################
 
